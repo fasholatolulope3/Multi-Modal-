@@ -10,6 +10,7 @@ import numpy as np
 import uuid
 import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uvicorn
 import logging
@@ -43,8 +44,18 @@ class VerificationResponse(BaseModel):
 @app.get("/")
 async def root():
     """Health check endpoint."""
-    return {"message": "Biometric Liveness API is running."}
+    return {"message": "Biometric Liveness API & Physics Framework are running."}
 
+from physics_engine.visualizer import generate_energy_density_plot
+
+@app.get("/metrics/alcubierre", tags=["Theoretical Physics"])
+async def get_alcubierre_metric():
+    """
+    Dynamically generates and returns a 3D structural plot mapped across 
+    the localized spatial cross-section illustrating theoretical Energy Density requirements.
+    """
+    plot_path = generate_energy_density_plot()
+    return FileResponse(plot_path, media_type="image/png", filename="metric_plot.png")
 
 @app.post("/verify", response_model=VerificationResponse)
 async def verify_liveness(
