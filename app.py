@@ -15,7 +15,7 @@ from physics_engine.visualizer import generate_plotly_energy_density
 from src.face_module import FaceLivenessDetector
 from src.voice_module import VoiceLivenessDetector
 from src.fusion import fuse_scores
-from src.session_store import update_student_telemetry, get_all_students_telemetry, submit_exam_response, get_exam_submission, delete_student_record
+from src.session_store import update_student_telemetry, get_all_students_telemetry, submit_exam_response, get_exam_submission, delete_student_record, get_exam_question, set_exam_question
 from src.database import init_db
 
 # Initialize database
@@ -135,7 +135,8 @@ if role == "Student - Exam Portal":
     with col2:
         st.subheader("Exam Response Area")
         if webrtc_ctx.state.playing:
-            answer = st.text_area("Question 1: Explain the geopolitical implications of Active Gravity Control.", height=300)
+            question_text = get_exam_question()
+            answer = st.text_area(question_text, height=300)
             if st.button("Submit Exam"):
                 submit_exam_response(student_id, student_name, matric_number, answer)
                 st.success("Exam Submitted Successfully! You may now close this tab.")
@@ -170,6 +171,17 @@ elif role == "Admin - Monitoring Dashboard":
                 st.rerun()
                 
         st.divider()
+        
+        st.subheader("⚙️ Global Exam Configuration")
+        with st.expander("📝 Set Live Exam Questions & Instructions", expanded=False):
+            current_q = get_exam_question()
+            new_q = st.text_area("Update the global exam prompt for all active students:", value=current_q, height=150)
+            if st.button("Save New Question"):
+                set_exam_question(new_q)
+                st.success("Exam Config Updated Successfully!")
+        
+        st.divider()
+        st.subheader("📡 Active Student Monitors")
         
         telemetry_data = get_all_students_telemetry()
         if not telemetry_data:

@@ -1,4 +1,5 @@
 import sqlite3
+import time
 
 DB_FILE = "liveness_records.db"
 
@@ -36,5 +37,16 @@ def init_db():
             submitted_at REAL
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS exam_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            question TEXT,
+            updated_at REAL
+        )
+    ''')
+    
+    # Initialize with default question if empty
+    c.execute("INSERT OR IGNORE INTO exam_config (id, question, updated_at) VALUES (1, 'Question 1: Explain the geopolitical implications of Active Gravity Control.', ?)", (time.time(),))
+    
     conn.commit()
     conn.close()

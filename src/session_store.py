@@ -104,3 +104,25 @@ def delete_student_record(student_id):
     except Exception as e:
         logger.error(f"Error deleting record from database: {e}")
 
+def get_exam_question():
+    try:
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute("SELECT question FROM exam_config WHERE id = 1")
+        row = c.fetchone()
+        conn.close()
+        return row[0] if row else "No question set."
+    except Exception as e:
+        logger.error(f"Error reading exam config from database: {e}")
+    return "Error loading question from database."
+
+def set_exam_question(question):
+    try:
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute("UPDATE exam_config SET question = ?, updated_at = ? WHERE id = 1", (question, time.time()))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error writing exam config to database: {e}")
+
