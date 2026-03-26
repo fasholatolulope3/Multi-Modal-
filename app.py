@@ -85,7 +85,16 @@ if role == "Student - Exam Portal":
                 img = frame.to_ndarray(format="bgr24")
                 try:
                     score, telemetry = self.face_detector.analyze_face_with_telemetry(img)
-                    self.frame_scores.append(score)
+                    
+                    # Apply Phase 8 AI Prediction
+                    from src.fusion import fuse_scores
+                    ai_score, ai_status = fuse_scores(face_score=score, voice_score=1.0, raw_features=telemetry.get("raw_features", {}))
+                    
+                    if telemetry["warning"]:
+                         ai_status = telemetry["warning"] # Override with explicit heuristic warnings
+                    telemetry["movement_status"] = ai_status
+
+                    self.frame_scores.append(ai_score)
                     if len(self.frame_scores) > 300:
                         self.frame_scores.pop(0)
 
@@ -93,10 +102,10 @@ if role == "Student - Exam Portal":
                     update_student_telemetry(student_id, student_name, matric_number, telemetry)
                     
                     # Draw the dynamic score
-                    color = (0, 255, 0) if score > 0.5 else (0, 0, 255)
-                    cv2.putText(img, f"Score: {score:.2f}", (20, 40), 
+                    color = (0, 255, 0) if ai_score > 0.5 else (0, 0, 255)
+                    cv2.putText(img, f"AI Liveness: {ai_score:.2f}", (20, 40), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-                    cv2.putText(img, telemetry["movement_status"], (20, 70), 
+                    cv2.putText(img, ai_status, (20, 70), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
                 except Exception as e:
                     print(f"VideoProcessor Error: {e}")

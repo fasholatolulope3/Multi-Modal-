@@ -118,7 +118,8 @@ class FaceLivenessDetector:
             "movement_status": "Focused",
             "multiple_faces": False,
             "no_face": False,
-            "warning": ""
+            "warning": "",
+            "raw_features": {}
         }
         
         h, w, _ = frame.shape
@@ -187,7 +188,15 @@ class FaceLivenessDetector:
 
         temporal_score = 1.0 if self.blink_total >= 1 else 0.5 
 
-        # 6. Score Level Fusion
+        # Package raw measurements for Machine Learning pipeline
+        telemetry["raw_features"] = {
+            "blur_score": float(blur_score),
+            "moire_score": float(moire_score),
+            "ear": float(ear),
+            "blink_count": int(self.blink_total)
+        }
+
+        # 6. Legacy Math Fusion (Used if ML model fails/missing)
         final_liveness = (blur_score * 0.35) + (moire_score * 0.35) + (temporal_score * 0.30)
         final_score = max(0.0, min(1.0, final_liveness))
         
