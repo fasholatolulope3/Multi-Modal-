@@ -104,23 +104,32 @@ def delete_student_record(student_id):
     except Exception as e:
         logger.error(f"Error deleting record from database: {e}")
 
-def get_exam_question():
+def get_exam_questions():
+    import json
     try:
         conn = get_connection()
         c = conn.cursor()
         c.execute("SELECT question FROM exam_config WHERE id = 1")
         row = c.fetchone()
         conn.close()
-        return row[0] if row else "No question set."
+        if row:
+            try:
+                # Try parsing as JSON list
+                return json.loads(row[0])
+            except (json.JSONDecodeError, TypeError):
+                # Fallback to single legacy question
+                return [row[0]]
+        return ["No question set."]
     except Exception as e:
         logger.error(f"Error reading exam config from database: {e}")
-    return "Error loading question from database."
+    return ["Error loading question from database."]
 
-def set_exam_question(question):
+def set_exam_questions(questions: list):
+    import json
     try:
         conn = get_connection()
         c = conn.cursor()
-        c.execute("UPDATE exam_config SET question = ?, updated_at = ? WHERE id = 1", (question, time.time()))
+        c.execute("UPDATE exam_config SET question = ?, updated_at = ? WHERE id = 1", (json.dumps(questions), time.time()))
         conn.commit()
         conn.close()
     except Exception as e:

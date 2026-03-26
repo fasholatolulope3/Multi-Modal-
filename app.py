@@ -15,7 +15,8 @@ from physics_engine.visualizer import generate_plotly_energy_density
 from src.face_module import FaceLivenessDetector
 from src.voice_module import VoiceLivenessDetector
 from src.fusion import fuse_scores
-from src.session_store import update_student_telemetry, get_all_students_telemetry, submit_exam_response, get_exam_submission, delete_student_record, get_exam_question, set_exam_question
+from src.session_store import update_student_telemetry, get_all_students_telemetry, submit_exam_response, get_exam_submission, delete_student_record, get_exam_questions, set_exam_questions
+import json
 from src.database import init_db
 
 # Initialize database
@@ -133,12 +134,15 @@ if role == "Student - Exam Portal":
         )
 
     with col2:
-        st.subheader("Exam Response Area")
+        st.subheader("📝 Examination Response Area")
         if webrtc_ctx.state.playing:
-            question_text = get_exam_question()
-            answer = st.text_area(question_text, height=300)
-            if st.button("Submit Exam"):
-                submit_exam_response(student_id, student_name, matric_number, answer)
+            questions_list = get_exam_questions()
+            responses = {}
+            for i, q in enumerate(questions_list):
+                responses[f"Question {i+1}"] = st.text_area(f"**Question {i+1}**: {q}", height=150, key=f"ans_input_{i}")
+                
+            if st.button("Submit Exam Data"):
+                submit_exam_response(student_id, student_name, matric_number, json.dumps(responses))
                 st.success("Exam Submitted Successfully! You may now close this tab.")
         else:
             st.warning("⚠️ Please click 'START' on the camera feed to unlock the exam questions.")
@@ -174,11 +178,19 @@ elif role == "Admin - Monitoring Dashboard":
         
         st.subheader("⚙️ Global Exam Configuration")
         with st.expander("📝 Set Live Exam Questions & Instructions", expanded=False):
-            current_q = get_exam_question()
-            new_q = st.text_area("Update the global exam prompt for all active students:", value=current_q, height=150)
-            if st.button("Save New Question"):
-                set_exam_question(new_q)
-                st.success("Exam Config Updated Successfully!")
+            current_qs = get_exam_questions()
+            
+            num_q = st.number_input("How many questions?", min_value=1, max_value=20, value=len(current_qs), step=1)
+            
+            new_qs = []
+            for i in range(num_q):
+                default_val = current_qs[i] if i < len(current_qs) else ""
+                q_text = st.text_area(f"Input Form for Question {i+1}:", value=default_val, height=100, key=f"config_q_{i}")
+                new_qs.append(q_text)
+                
+            if st.button("Save New Exam Configuration"):
+                set_exam_questions(new_qs)
+                st.success(f"{num_q} Question(s) Updated Worldwide!")
         
         st.divider()
         st.subheader("📡 Active Student Monitors")
@@ -212,7 +224,13 @@ elif role == "Admin - Monitoring Dashboard":
                     exam_data = get_exam_submission(s_id)
                     if exam_data:
                         st.info(f"📝 **Exam Submitted at:** {time.strftime('%H:%M:%S', time.localtime(exam_data['submitted_at']))}")
-                        st.text_area("Student Response", exam_data["response"], height=150, disabled=True, key=f"exam_{s_id}")
+                        try:
+                            responses_dict = json.loads(exam_data["response"])
+                            for q_title, ans in responses_dict.items():
+                                st.text_area(q_title, ans, height=100, disabled=True, key=f"exam_{s_id}_{q_title}")
+                        except Exception:
+                            # Fallback if old submission format (single string)
+                            st.text_area("Student Response", exam_data["response"], height=150, disabled=True, key=f"exam_fallback_{s_id}")
                     else:
                         st.warning("⏳ Exam not yet submitted.")
                     
