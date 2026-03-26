@@ -24,6 +24,11 @@ def init_db():
     except sqlite3.OperationalError:
         pass
         
+    try:
+        c.execute("ALTER TABLE student_sessions ADD COLUMN matric_number TEXT DEFAULT 'Unknown'")
+    except sqlite3.OperationalError:
+        pass
+        
     c.execute('''
         CREATE TABLE IF NOT EXISTS exam_submissions (
             session_id TEXT PRIMARY KEY,

@@ -49,17 +49,20 @@ if role == "Student - Exam Portal":
     if not st.session_state["student_registered"]:
         st.info("Please register your identity before starting the exam.")
         name_input = st.text_input("Full Name", placeholder="e.g. John Doe")
+        matric_input = st.text_input("Matric Number", placeholder="e.g. MAT/123/456")
         if st.button("Register & Start Exam"):
-            if name_input.strip():
+            if name_input.strip() and matric_input.strip():
                 st.session_state["student_name"] = name_input.strip()
+                st.session_state["matric_number"] = matric_input.strip()
                 st.session_state["student_registered"] = True
                 st.rerun()
             else:
-                st.error("Please enter a valid name.")
+                st.error("Please enter a valid name and matric number.")
         st.stop()
         
     student_name = st.session_state["student_name"]
-    st.markdown(f"**Welcome, {student_name}** | Your Session ID: `{student_id}`")
+    matric_number = st.session_state["matric_number"]
+    st.markdown(f"**Welcome, {student_name} ({matric_number})** | Your Session ID: `{student_id}`")
     st.markdown("Please activate your camera and begin your exam. Your head movement and focus are being monitored.")
 
     col1, col2 = st.columns([1, 1])
@@ -87,7 +90,7 @@ if role == "Student - Exam Portal":
                         self.frame_scores.pop(0)
 
                     # Update local state store for Admin Dashboard
-                    update_student_telemetry(student_id, student_name, telemetry)
+                    update_student_telemetry(student_id, student_name, matric_number, telemetry)
                     
                     # Draw the dynamic score
                     color = (0, 255, 0) if score > 0.5 else (0, 0, 255)
@@ -125,7 +128,7 @@ if role == "Student - Exam Portal":
         if webrtc_ctx.state.playing:
             answer = st.text_area("Question 1: Explain the geopolitical implications of Active Gravity Control.", height=300)
             if st.button("Submit Exam"):
-                submit_exam_response(student_id, student_name, answer)
+                submit_exam_response(student_id, student_name, matric_number, answer)
                 st.success("Exam Submitted Successfully! You may now close this tab.")
         else:
             st.warning("⚠️ Please click 'START' on the camera feed to unlock the exam questions.")
@@ -165,7 +168,8 @@ elif role == "Admin - Monitoring Dashboard":
         else:
             for s_id, data in telemetry_data.items():
                 s_name = data.get("student_name", "Unknown")
-                with st.expander(f"{s_name} (Session {s_id}) - Last Updated: {time.strftime('%H:%M:%S', time.localtime(data['last_updated']))}", expanded=True):
+                m_num = data.get("matric_number", "Unknown")
+                with st.expander(f"[{m_num}] {s_name} (Session {s_id}) - Last Updated: {time.strftime('%H:%M:%S', time.localtime(data['last_updated']))}", expanded=True):
                     t = data["telemetry"]
                     
                     # Check stale connection (no update in last 10 seconds)

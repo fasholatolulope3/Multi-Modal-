@@ -5,7 +5,7 @@ from src.database import get_connection
 
 logger = logging.getLogger(__name__)
 
-def update_student_telemetry(student_id, student_name, data):
+def update_student_telemetry(student_id, student_name, matric_number, data):
     try:
         conn = get_connection()
         c = conn.cursor()
@@ -13,8 +13,8 @@ def update_student_telemetry(student_id, student_name, data):
         # INSERT OR REPLACE handles both new connections and updates based on the PRIMARY KEY
         c.execute('''
             INSERT OR REPLACE INTO student_sessions 
-            (session_id, last_updated, movement_status, multiple_faces, no_face, warning, student_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (session_id, last_updated, movement_status, multiple_faces, no_face, warning, student_name, matric_number)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             student_id,
             time.time(),
@@ -22,7 +22,8 @@ def update_student_telemetry(student_id, student_name, data):
             1 if data.get('multiple_faces') else 0,
             1 if data.get('no_face') else 0,
             data.get('warning', ''),
-            student_name
+            student_name,
+            matric_number
         ))
         conn.commit()
         conn.close()
@@ -41,6 +42,7 @@ def get_all_students_telemetry():
         for row in rows:
             result[row['session_id']] = {
                 "student_name": row['student_name'] if 'student_name' in row.keys() else 'Unknown',
+                "matric_number": row['matric_number'] if 'matric_number' in row.keys() else 'Unknown',
                 "last_updated": row['last_updated'],
                 "telemetry": {
                     "movement_status": row['movement_status'],
@@ -55,7 +57,7 @@ def get_all_students_telemetry():
         
     return result
 
-def submit_exam_response(student_id, student_name, response):
+def submit_exam_response(student_id, student_name, matric_number, response):
     try:
         conn = get_connection()
         c = conn.cursor()
@@ -68,9 +70,9 @@ def submit_exam_response(student_id, student_name, response):
         # Ensure student is visible in Admin telemetry loop even if webcam failed
         c.execute('''
             INSERT OR IGNORE INTO student_sessions
-            (session_id, last_updated, movement_status, multiple_faces, no_face, warning, student_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (student_id, time.time(), "Exam Submitted", 0, 0, "No Video Telemetry Logged", student_name))
+            (session_id, last_updated, movement_status, multiple_faces, no_face, warning, student_name, matric_number)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (student_id, time.time(), "Exam Submitted", 0, 0, "No Video Telemetry Logged", student_name, matric_number))
         
         conn.commit()
         conn.close()
