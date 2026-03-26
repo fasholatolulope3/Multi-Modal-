@@ -109,10 +109,18 @@ class FaceLivenessDetector:
         right_ear = build_eye_ear(self.RIGHT_EYE_INDICES)
         return (left_ear + right_ear) / 2.0
 
-    def get_liveness_score(self, frame: np.ndarray) -> float:
+    def analyze_face_with_telemetry(self, frame: np.ndarray) -> tuple[float, dict]:
         """
         Main pipeline. Fuses spatial and temporal features into a master float (0 to 1).
+        Also returns detailed telemetry dictionary for Exam Proctoring.
         """
+        telemetry = {
+            "movement_status": "Focused",
+            "multiple_faces": False,
+            "no_face": False,
+            "warning": ""
+        }
+        
         h, w, _ = frame.shape
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
@@ -122,19 +130,35 @@ class FaceLivenessDetector:
 
         # 1. Error Handling
         if not detection_result.face_landmarks:
-            logger.warning("[FAILED] No Face Detected.")
-            return 0.0
+            telemetry["no_face"] = True
+            telemetry["warning"] = "No Face Detected"
+            telemetry["movement_status"] = "Absent"
+            return 0.0, telemetry
             
         if len(detection_result.face_landmarks) > 1:
-            logger.warning("[FAILED] Multiple Faces Detected. Please ensure a solitary subject.")
-            return 0.0
+            telemetry["multiple_faces"] = True
+            telemetry["warning"] = "Multiple Faces Detected"
+            return 0.0, telemetry
             
         face_landmarks = detection_result.face_landmarks[0]
         
+        # Determine Head Pose (Yaw heuristic)
+        nose = face_landmarks[1]
+        left_cheek = face_landmarks[234]
+        right_cheek = face_landmarks[454]
+        
+        dist_left = ((nose.x - left_cheek.x)**2 + (nose.y - left_cheek.y)**2)**0.5
+        dist_right = ((nose.x - right_cheek.x)**2 + (nose.y - right_cheek.y)**2)**0.5
+        
+        if dist_left > 1.8 * dist_right:
+            telemetry["movement_status"] = "Looking Right"
+        elif dist_right > 1.8 * dist_left:
+            telemetry["movement_status"] = "Looking Left"
+            
         # 2. Extract ROI
         roi = self._extract_roi(frame, face_landmarks)
         if roi.size == 0:
-            return 0.0
+            return 0.0, telemetry
 
         # 3. Spatial Analysis (Blur)
         lap_var = self._calculate_laplacian_variance(roi)
@@ -154,6 +178,8 @@ class FaceLivenessDetector:
         
         if ear < self.EAR_THRESHOLD:
             self.blink_counter += 1
+            if telemetry["movement_status"] == "Focused":
+                telemetry["movement_status"] = "Blinking"
         else:
             if self.blink_counter >= self.BLINK_CONSEC_FRAMES:
                 self.blink_total += 1
@@ -163,5 +189,14 @@ class FaceLivenessDetector:
 
         # 6. Score Level Fusion
         final_liveness = (blur_score * 0.35) + (moire_score * 0.35) + (temporal_score * 0.30)
-        return max(0.0, min(1.0, final_liveness))
+        final_score = max(0.0, min(1.0, final_liveness))
+        
+        if final_score < 0.5 and not telemetry["warning"]:
+             telemetry["warning"] = "Suspicious Behavior Detected (Low Liveness Score)"
+             
+        return final_score, telemetry
 
+    def get_liveness_score(self, frame: np.ndarray) -> float:
+        """Fallback method for compatibility."""
+        score, _ = self.analyze_face_with_telemetry(frame)
+        return score
