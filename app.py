@@ -66,17 +66,22 @@ if role == "Student - Exam Portal":
 
     with col1:
         st.subheader("WebRTC Camera Stream")
-        with st.spinner("Initializing Deep Learning Models (FaceMesh & Acoustic Inference)..."):
-            face_detector, voice_detector = load_ml_models()
+        with st.spinner("Initializing WebRTC Handlers..."):
+            pass
             
         class VideoProcessor:
             def __init__(self):
                 self.frame_scores = []
+                self.face_detector = None
                 
             def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+                if self.face_detector is None:
+                    from src.face_module import FaceLivenessDetector
+                    self.face_detector = FaceLivenessDetector()
+                    
                 img = frame.to_ndarray(format="bgr24")
                 try:
-                    score, telemetry = face_detector.analyze_face_with_telemetry(img)
+                    score, telemetry = self.face_detector.analyze_face_with_telemetry(img)
                     self.frame_scores.append(score)
                     if len(self.frame_scores) > 300:
                         self.frame_scores.pop(0)
@@ -90,8 +95,8 @@ if role == "Student - Exam Portal":
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
                     cv2.putText(img, telemetry["movement_status"], (20, 70), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"VideoProcessor Error: {e}")
                 return av.VideoFrame.from_ndarray(img, format="bgr24")
 
         class AudioProcessor:
