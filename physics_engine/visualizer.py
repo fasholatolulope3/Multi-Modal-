@@ -3,6 +3,7 @@ import matplotlib
 matplotlib.use('Agg') # Safe for server deployment without GUI
 import matplotlib.pyplot as plt
 import os
+import plotly.graph_objects as go
 
 def generate_energy_density_plot(output_dir="models", filename="metric_plot.png"):
     """
@@ -62,3 +63,34 @@ def generate_energy_density_plot(output_dir="models", filename="metric_plot.png"
     plt.close()
     
     return output_path
+
+def generate_plotly_energy_density(v_s_val=3.0e8, R_val=50.0, sigma_val=8.0):
+    """
+    Dynamically generates an interactive Plotly 3D HTML figure for Streamlit.
+    """
+    G_val = 6.67430e-11
+    
+    Y, Z = np.meshgrid(np.linspace(-100, 100, 200), np.linspace(-100, 100, 200))
+    rs_grid = np.sqrt(Y**2 + Z**2)
+    rs_grid[rs_grid == 0] = 1e-10 
+    
+    def df_dr(rs):
+        norm = 2 * np.tanh(sigma_val * R_val)
+        term1 = sigma_val / (np.cosh(sigma_val * (rs + R_val))**2)
+        term2 = sigma_val / (np.cosh(sigma_val * (rs - R_val))**2)
+        return (term1 - term2) / norm
+        
+    d_f = df_dr(rs_grid)
+    T_00 = -(v_s_val**2 / (32 * np.pi * G_val)) * (d_f**2)
+    
+    fig = go.Figure(data=[go.Surface(z=T_00, x=Y, y=Z, colorscale='Magma')])
+    fig.update_layout(
+        title='Alcubierre Metric: Negative Energy Density Structure',
+        scene=dict(
+            xaxis_title='y (meters)',
+            yaxis_title='z (meters)',
+            zaxis_title='T^{00} (J/m^3)'
+        ),
+        margin=dict(l=0, r=0, b=0, t=40)
+    )
+    return fig
